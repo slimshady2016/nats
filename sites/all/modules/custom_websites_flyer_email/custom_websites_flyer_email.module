@@ -1,0 +1,126 @@
+<?php
+
+/* Implement hook_menu() */
+/* Add link 'Dashbord' to the user menu */
+function custom_websites_flyer_email_menu() {
+	$items = array();
+	$items['dashboard'] = array(
+		'title' => 'Dashboard',
+		'description' => 'Websites Flyer Email',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('custom_websites_flyer_email_form'),
+		'menu_name' => 'user-menu',
+		'access arguments' => array('access_custom_page'),
+	);
+	return $items;
+}
+
+/* Implement hook_permissions() */
+function custom_websites_flyer_email_permission() {
+	return array(
+		'access_custom_page' => array(
+		'title' => t('Access Dashboard'),
+		),
+	);
+}
+
+/* Implement hook_form() */
+/* List the products in table format with select option */
+function custom_websites_flyer_email_form($form, &$form_state) {
+
+	$header = array(
+		'title' => t('Websites'),
+	);
+	
+	$query = db_query("SELECT nid, type, created FROM node WHERE type = 'profile' ORDER BY created DESC")->fetchAll();
+	
+	foreach($query as $value){
+		$nodes[] = node_load($value->nid);
+	} 
+	
+	foreach($nodes as $node){
+		$nid = $node->nid;
+		$title = $node->title;
+                $options[$nid] = array('title' => $title);
+		
+	}
+	
+	//learn this portion
+	$form['profile'] = array(
+		'#type' => 'tableselect',
+		'#header' => $header,
+                '#options' => $options,
+		'#empty' => t('No websites found'),
+	);
+	
+	$form['submit_button'] = array(
+		'#type' => 'submit',
+		'#value' => t('Send Update'),
+	);	
+	
+	return $form;
+}
+
+/* Implement hook_submit() */
+/* Process the submitted values and email to subscribers */
+function custom_websites_flyer_email_form_submit($form, &$form_state) {
+	$email_content = get_mail_content($form_state);
+	$params = array('body' => $email_content);
+	$key = 'flyer_email';
+	$to = 'staneja@newagetechsystems.com';
+	$from = 'staneja@newagetechsystems.com';
+	$mail = drupal_mail('custom_websites_flyer_email', $key, $to, language_default(), $params, $from);
+	return $mail;
+}
+
+/**
+ * Implements hook_mail()
+ * @param 
+ *   type $key to decide which email body to sent on basis of key parameter in case of multiple email content
+ * @param 
+ *   type $message the email content to be sent.Message array contains 'subject and body ' for the email.
+ * @param 
+ *   type $params using to get the custom email content from a function. This can be used in my other ways also as per need.
+ */
+function custom_websites_flyer_email_mail($key, &$message, $params) {
+	$query = db_query("SELECT simplenews_subscriber.snid, simplenews_subscriber.mail, simplenews_subscriber.activated FROM simplenews_subscriber WHERE simplenews_subscriber.activated = '1' ORDER BY simplenews_subscriber.snid ASC")->fetchAll();
+	foreach($query as $value) {	
+		$emails[] = $value->mail;
+	}
+	$emails = implode(", ",$emails);
+	
+	$language = $message['language'];
+	switch ($key) {
+		case 'flyer_email':
+		$message['subject'] = t('New Website added to New Age Tech Systems');
+		$message['body'][] = $params['body'];
+		//$message['headers']['BCC'] = $emails;
+		$message['headers']['BCC'] = 'staneja@newagetechsystems.com';
+    break;
+	}	
+}
+ 
+/**
+ * function to get the html formatted email content
+ * @param 
+ *   type $form_state to get values from form fields.
+ * @return 
+ *   $body type string return the html email content 
+ */
+function get_mail_content($form_state) {  
+	foreach($form_state['values']['profile'] as $pid){
+		$node = node_load($pid);
+                 $title[] = $node->title . "<br /><br />";
+	}
+	$profile_list = implode("<br />", $title);
+	$body = '';
+	$body .= 'Here are the new sites that have been added:';
+	$body .= '<br />';
+	$body .= $profile_list;
+	$body .= '<br />';
+	$body .= '<br />';
+	$body .= 'Thank you,';
+	$body .= '<br />';
+	$body .= 'New Age Tech Systems Management';	
+	return $body;
+}

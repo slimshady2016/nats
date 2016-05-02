@@ -1,0 +1,10 @@
+name = Custom Websites Flyer Email
+
+description = Custom Websites Flyer Email
+
+core = 7.x
+
+version = 7.x-1.1-custom
+
+package = Custom	
+
